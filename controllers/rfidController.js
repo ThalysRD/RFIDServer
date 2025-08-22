@@ -245,6 +245,97 @@ const rfidController = {
                 error: error.message
             });
         }
+    },
+
+    processTagsHex: async (req, res) => {
+        try {
+            const { tagId, timestamp } = req.body;
+
+            // Validação básica
+            if (!tagId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Campo "tagId" é obrigatório',
+                    example: {
+                        tagId: "A1B2C3D4E5F6",
+                        timestamp: "2025-08-22T10:30:00Z"
+                    }
+                });
+            }
+
+            if (!timestamp) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Campo "timestamp" é obrigatório',
+                    example: {
+                        tagId: "A1B2C3D4E5F6",
+                        timestamp: "2025-08-22T10:30:00Z"
+                    }
+                });
+            }
+
+            // Função para validar se é hexadecimal
+            const isValidHex = (value) => {
+                return typeof value === 'string' && /^[0-9A-Fa-f]+$/.test(value);
+            };
+
+            // Validar se tagId é hexadecimal
+            if (!isValidHex(tagId)) {
+                return res.status(400).json({
+                    success: false,
+                    error: `TagId inválido: "${tagId}". Deve ser um valor hexadecimal.`,
+                    example: "A1B2C3D4E5F6"
+                });
+            }
+
+            // Validar formato do timestamp
+            const timestampDate = new Date(timestamp);
+            if (isNaN(timestampDate.getTime())) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Timestamp inválido: "${timestamp}". Deve ser um formato de data válido.`,
+                    example: "2025-08-22T10:30:00Z"
+                });
+            }
+
+            console.log('Processando tag hexadecimal:', {
+                tagId: tagId.toUpperCase(),
+                timestamp,
+                receivedAt: new Date().toISOString()
+            });
+
+            // Inserir na tabela rfid_tags_hex
+            const result = await database.query(`
+                INSERT INTO rfid_tags_hex 
+                (tag_id, timestamp) 
+                VALUES ($1, $2) 
+                RETURNING *
+            `, [
+                tagId.toUpperCase(),
+                timestamp
+            ]);
+
+            const savedTag = result.rows[0];
+
+            res.status(201).json({
+                success: true,
+                message: 'Tag hexadecimal processada e salva com sucesso',
+                data: {
+                    id: savedTag.id,
+                    tagId: savedTag.tag_id,
+                    timestamp: savedTag.timestamp,
+                    createdAt: savedTag.created_at
+                }
+            });
+
+        } catch (error) {
+            console.error('Erro ao processar tag hexadecimal:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Erro interno do servidor',
+                message: error.message
+            });
+        }
     }
 };
 
